@@ -10,6 +10,53 @@ use std::sync::{Arc, RwLock};
 /// ```
 pub type State<T> = Arc<RwLock<Option<T>>>;
 
+/// A type alias for a boxed dynamic closure that can modify the state.
+///
+/// This closure takes an `Option<T>` as its input and returns a `Result<(), Error>`
+/// from the `error` module, allowing for error handling. It is both `Send` and `Sync`,
+/// making it safe to be sent to or shared between different threads. This flexibility
+/// makes it suitable for concurrent environments where state modifications need to be
+/// synchronized across threads.
+///
+/// # Parameters
+/// - `T`: The type of the value that the closure can accept. It uses `Option<T>` to
+///   allow for the possibility of resetting or clearing the state by passing `None`.
+///
+/// # Returns
+/// - `error::Result<()>`: A result indicating success (`Ok(())`) or containing an error
+///   (`Err`) if the state modification fails.
+///
+/// # Traits
+/// - `Send`: Allows the `StateSetter` to be transferred across thread boundaries.
+/// - `Sync`: Allows the `StateSetter` to be accessed from multiple threads simultaneously.
+///
+/// # Examples
+///
+/// ```rust
+///
+/// pub type StateSetter<T> = Box<dyn Fn(Option<T>) -> error::Result<()> + Send + Sync>;
+///
+/// // Example usage of `StateSetter`
+/// fn main() -> error::Result<()> {
+///     // A sample state setter that simply prints the value or "Reset" if None
+///     let setter: StateSetter<String> = Box::new(|opt| {
+///         match opt {
+///             Some(value) => println!("New value: {}", value),
+///             None => println!("State reset"),
+///         }
+///         Ok(())
+///     });
+///
+///     // Using the state setter
+///     setter(Some("Hello, world!".to_string()))?;
+///     setter(None)?;
+///
+///     Ok(())
+/// }
+/// ```
+pub type StateSetter<T> = Box<dyn Fn(Option<T>) -> error::Result<()> + Send + Sync>;
+
+
 /// Submodule defining possible errors.
 pub mod error;
 
@@ -47,7 +94,7 @@ pub trait StateManager<S>
     /// # Return Value
     ///
     /// Returns a tuple of `State<S>` and a function for modifying the state.
-    fn new_state(data: Option<S>) -> (State<S>, impl Fn(Option<S>) -> error::Result<()>); 
+    fn new_state(data: Option<S>) -> (State<S>, StateSetter<S>); 
 }
 
 /// Implement the `StateManager` trait for all types `T` that implement `StateBuffer`.
@@ -59,7 +106,7 @@ impl<T, S> StateManager<S> for T
     
     fn new_state(data: Option<S>) -> (
         State<S>, 
-        impl Fn(Option<S>) -> error::Result<()>
+        StateSetter<S>
     ) {
         let (state, state_for_setter) = match data {
             Some(value) => {
@@ -84,7 +131,7 @@ impl<T, S> StateManager<S> for T
             }
 
         };
-        (state, setter)
+        (state, Box::new(setter))
     }
 }
 

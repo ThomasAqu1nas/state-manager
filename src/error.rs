@@ -3,7 +3,6 @@ use std::error::Error;
 
 pub type Result<T> = std::result::Result<T, StateError>;
 
-// Определение перечисления для пользовательской ошибки
 #[derive(Debug)]
 pub enum StateError
 {
@@ -11,7 +10,6 @@ pub enum StateError
     Default(String),
 }
 
-// Реализация трейта Display для пользовательской ошибки
 impl fmt::Display for StateError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
@@ -23,6 +21,5 @@ impl fmt::Display for StateError {
     }
 }
 
-// Реализация трейта Error для пользовательской ошибки
 impl Error for StateError {}
 

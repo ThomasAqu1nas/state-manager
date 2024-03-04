@@ -1,24 +1,62 @@
 use std::sync::{Arc, RwLock};
 
+/// Defines the `State` type as an atomically reference-counted read/write lock containing an optional value of type `T`.
+/// This allows for the safe sharing and modification of state across threads.
+///
+/// # Example
+///
+/// ```
+/// let state: State<i32> = Arc::new(RwLock::new(Some(42)));
+/// ```
 pub type State<T> = Arc<RwLock<Option<T>>>;
 
+/// Submodule defining possible errors.
 pub mod error;
 
+/// The `StateBuffer` trait defines the behavior of a state buffer.
+/// In this context, it acts as a marker trait without methods.
 pub trait StateBuffer{}
 
+/// The `StateManager` trait provides functionality for creating new states.
+/// It requires the state type `S` to be sendable across threads, synchronizable, have a default value,
+/// be cloneable, and have a `'static` lifetime.
+///
+/// # Examples
+///
+/// ```
+/// struct MyStateBuffer;
+///
+/// impl StateBuffer for MyStateBuffer {}
+///
+/// impl StateManager<String> for MyStateBuffer {
+///     fn new_state(data: Option<String>) -> (State<String>, impl Fn(Option<String>) -> error::Result<()>) {
+///         // Implementation of the method
+///     }
+/// }
+/// ```
 pub trait StateManager<S> 
     where 
     S: Send + Sync + Default + Clone + 'static,
 {
+    /// Creates a new state with initial data and returns a tuple containing `State<S>` and a function for modifying it.
+    ///
+    /// # Arguments
+    ///
+    /// * `data` - The initial state value of type `S`.
+    ///
+    /// # Return Value
+    ///
+    /// Returns a tuple of `State<S>` and a function for modifying the state.
     fn new_state(data: Option<S>) -> (State<S>, impl Fn(Option<S>) -> error::Result<()>); 
 }
 
-
+/// Implement the `StateManager` trait for all types `T` that implement `StateBuffer`.
 impl<T, S> StateManager<S> for T
     where 
     S: Send + Sync + Default + Clone + 'static,
     T: StateBuffer
 {
+    
     fn new_state(data: Option<S>) -> (
         State<S>, 
         impl Fn(Option<S>) -> error::Result<()>
@@ -50,7 +88,20 @@ impl<T, S> StateManager<S> for T
     }
 }
 
+/// The `Getter` trait provides a `get` method for retrieving the value from the state.
+///
+/// # Examples
+///
+/// ```
+/// let state: State<i32> = Arc::new(RwLock::new(Some(42)));
+/// assert_eq!(state.get(), Some(42));
+/// ```
 pub trait Getter<T> {
+    /// Returns the current value of the state, if it exists.
+    ///
+    /// # Return Value
+    ///
+    /// Returns `Option<T>`, where `T` is the type of the value stored in the state.
     fn get(&self) -> Option<T>;
 }
 
